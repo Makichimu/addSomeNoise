@@ -4,13 +4,20 @@ from app.utils.logger import logger
 from app.utils.audio_processing import AudioProcessor
 import json
 import os
+import asyncio
 
 media_path = os.path.join(os.path.dirname(__file__), '..', 'media')
 
 router = APIRouter()
 
+async def delete_file_after_delay(file_path: str, delay: int):
+    await asyncio.sleep(delay)
+    if os.path.exists(file_path):
+        os.remove(file_path)
+        logger.info(f"File {file_path} deleted after delay")
+
 @router.post("/process")
-def process_audio(file: UploadFile = Form(...), effects: str = Form(...)):
+async def process_audio(file: UploadFile = Form(...), effects: str = Form(...)):
     try:
         effects_list = json.loads(effects)
         # Save the uploaded file
@@ -25,6 +32,9 @@ def process_audio(file: UploadFile = Form(...), effects: str = Form(...)):
         logger.info("Audio processed")
         processed_file_location = processor.save_audio()
         logger.info(f"Processed file saved to {processed_file_location}")
+        
+        # Schedule file deletion
+        asyncio.create_task(delete_file_after_delay(processed_file_location, 900))
         
         # Return the processed file location as a URL
         processed_file_url = f"/media/{os.path.basename(processed_file_location)}"
